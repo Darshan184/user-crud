@@ -17,7 +17,7 @@ public class AuthHandler implements RequestHandler<APIGatewayCustomAuthorizerEve
         IamPolicyResponse.Statement statement = IamPolicyResponse.Statement.builder()
                 .withAction("execute-api:Invoke")
                 .withEffect(effect)
-                .withResource(Collections.singletonList(event.getMethodArn())) // Ensure this is a String, not a List
+                .withResource(Collections.singletonList(event.getMethodArn()))
                 .build();
         IamPolicyResponse.PolicyDocument policyDocument = IamPolicyResponse.PolicyDocument.builder()
                 .withVersion("2012-10-17")

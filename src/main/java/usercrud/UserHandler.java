@@ -12,19 +12,19 @@ import java.util.UUID;
 
 public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent>{
     private final DynamoDbTable<User> table;
-    private final ObjectMapper mapper= new ObjectMapper();
+    private final ObjectMapper mapper= new ObjectMapper();//Object mapper to map json objects
 
     public UserHandler(){
         DynamoDbEnhancedClient client= DynamoDbEnhancedClient.builder().build();
         String tableName= System.getenv("TABLE_NAME");
-        if(tableName==null)
+        if(tableName==null)//Setting default tableName to UsersTable
             tableName="UsersTable";
         this.table=client.table(tableName,TableSchema.fromBean(User.class));
     }
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context){
-        String method= request.getHttpMethod();
+        String method= request.getHttpMethod();//The HTTP method is extracted inorder to switch between crud functions
         try {
             switch (method){
                 case "POST":
@@ -34,7 +34,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                     if(emailExists(user.getEmail())){
                         return response(400,"User already exists");
                     }
-                    user.setUserId(UUID.randomUUID().toString());
+                    user.setUserId(UUID.randomUUID().toString());//Generates a random uuid for userId and converts it to string
                     table.putItem(user);
                     return response(201,user);
                 case "PUT":
@@ -59,6 +59,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                     return response(405,"Unsupported Method");
             }
         }catch(Exception e){
+            //Here we handle the exception which can be thrown by mapper.writeValueAsString
             APIGatewayProxyResponseEvent errorRes = new APIGatewayProxyResponseEvent();
             errorRes.setStatusCode(500);
             errorRes.setBody("Server Error: " + e.getMessage());
@@ -66,13 +67,14 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         }
     }
     private boolean emailExists(String email){
+        //Building a filter expression to filter the scan
         Expression filter= Expression.builder()
                 .expression("#e= :emailVal")
                 .putExpressionName("#e","email")
                 .putExpressionValue(":emailVal",Attribute.builder().s(email).build())
                 .build();
         return table.scan(ScanEnhancedRequest.builder().filterExpression(filter).build())
-                .items().stream().findAny().isPresent();
+                .items().stream().findAny().isPresent();//We use findAny to streamline the process faster
     }
     private APIGatewayProxyResponseEvent response(int status, Object body) {
         try {

@@ -2,13 +2,13 @@ package model;
 
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
-
+//User model
 @DynamoDbBean
 public class User{
     private String userId;
     private String name;
     private String email;
-
+//UserId is set as partition key using the annotation
     @DynamoDbPartitionKey
     public String getUserId(){
         return userId;
