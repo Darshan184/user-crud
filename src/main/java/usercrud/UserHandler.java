@@ -68,6 +68,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             return errorRes;
         }
     }
+    //Using this function to check if the email exists
     private boolean emailExists(String email){
         //Building a filter expression to filter the scan
         Expression filter= Expression.builder()
