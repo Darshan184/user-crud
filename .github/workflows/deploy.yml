@@ -38,4 +38,4 @@ jobs:
 
       - name: SAM Deploy
         run:
-          sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name user-crud --capabilities CAPABILITY_IAM
+          sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name user-crud --capabilities CAPABILITY_IAM --region us-east-1
