@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  user-crud-1
+
+  Sample SAM Template for user-crud-1
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 20
+    MemorySize: 512
+    Runtime: java21
+    Environment:
+      Variables:
+        TABLE_NAME: UsersTable
+Resources:
+  MyApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      #Auth:
+        #DefaultAuthorizer: CustomAuth
+        #Authorizers:
+         # CustomAuth:
+          #  FunctionArn: !GetAtt AuthFunction.Arn
+           # Identity:
+            #  Header: Authorization
+
+  UserCrudFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: .
+      Handler: usercrud.UserHandler::handleRequest
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        CreateUser:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /users
+            Method: post
+            RestApiId: !Ref MyApi
+        UserOperations:
+          Type: Api
+          Properties:
+            Path: /users/{id}
+            Method: any
+            RestApiId: !Ref MyApi
+  #AuthFunction:
+   # Type: AWS::Serverless::Function
+    #Properties:
+     # CodeUri: UserFunction
+      #Handler: usercrud.AuthHandler::handleRequest
+  UsersTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: userId
+        Type: String
+      TableName: UsersTable
+  #AuthFunctionInvocationPermission:
+   # Type: AWS::Lambda::Permission
+    #Properties:
+     # Action : lambda:InvokeFunction
+      #FunctionName: !GetAtt AuthFunction.Arn
+      #Principal: apigateway.amazonaws.com
+      #SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MyApi}/*/*/*"
+
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${MyApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/users"
