@@ -6,6 +6,8 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import model.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import software.amazon.awssdk.enhanced.dynamodb.model.ScanEnhancedRequest;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.enhanced.dynamodb.*;
 import java.util.Map;
 import java.util.UUID;
@@ -71,7 +73,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         Expression filter= Expression.builder()
                 .expression("#e= :emailVal")
                 .putExpressionName("#e","email")
-                .putExpressionValue(":emailVal",Attribute.builder().s(email).build())
+                .putExpressionValue(":emailVal",AttributeValue.builder().s(email).build())
                 .build();
         return table.scan(ScanEnhancedRequest.builder().filterExpression(filter).build())
                 .items().stream().findAny().isPresent();//We use findAny to streamline the process faster
