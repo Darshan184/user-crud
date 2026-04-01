@@ -20,6 +20,7 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import software.amazon.awssdk.enhanced.dynamodb.model.WriteBatch;
 import software.amazon.awssdk.enhanced.dynamodb.model.ReadBatch;
 import software.amazon.awssdk.enhanced.dynamodb.model.BatchWriteItemEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.TransactPutItemEnhancedRequest;
 import software.amazon.awssdk.enhanced.dynamodb.model.BatchGetItemEnhancedRequest;
 import com.fasterxml.jackson.core.type.TypeReference;
 
@@ -45,6 +46,23 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             switch (method){
                 case "POST": {
                     List<User> usersPosted = (body != null && body.trim().startsWith("["))
+                            ? mapper.readValue(body, new TypeReference<List<User>>() {})
+                            : Collections.singletonList(mapper.readValue(body, User.class));
+                    if (usersPosted.isEmpty()) return response(400, "Empty request body");
+                    client.transactWriteItems(b -> {
+                        for (User user : usersPosted) {
+                            b.addPutItem(table, TransactPutItemEnhancedRequest.builder(User.class)
+                                    .item(user)
+                                    .conditionExpression(Expression.builder()
+                                            .expression("attribute_not_exists(email)")
+                                            .build())
+                                    .build());
+                        }
+                    });
+                    return response(201, usersPosted);
+                }
+                case "PUT": {
+                    List<User> usersPosted = (body != null && body.trim().startsWith("["))
                             ? mapper.readValue(body, new TypeReference<List<User>>() {
                     })
                             : Collections.singletonList(mapper.readValue(body, User.class));
@@ -52,13 +70,12 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                         return response(400, "Empty request body");
                     WriteBatch.Builder<User> writeBatch = WriteBatch.builder(User.class).mappedTableResource(table);
                     for (User user : usersPosted) {
-                        if (user.getUserId() == null)
-                            user.setUserId(UUID.randomUUID().toString());
                         writeBatch.addPutItem(user);
                     }
                     client.batchWriteItem(b -> b.addWriteBatch(writeBatch.build()));
                     return response(201, usersPosted);
                 }
+               /*
                 case "GET": {
                     List<String> ids = getIdsFromRequest(request);
                     if (ids.isEmpty())
@@ -70,13 +87,13 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                     if (results.isEmpty())
                         return response(404, "User not found");
                     return response(200, results);
-                }
+                }*/
                 case "DELETE": {
-                    List<String> ids = getIdsFromRequest(request);
-                    if (ids.isEmpty())
+                    List<String> emails = getEmailsFromRequest(request);
+                    if (emails.isEmpty())
                         return response(400, "Missing UserId");
                     WriteBatch.Builder<User> deleteBatch = WriteBatch.builder(User.class).mappedTableResource(table);
-                    ids.forEach(id -> deleteBatch.addDeleteItem(Key.builder().partitionValue(id).build()));
+                    emails.forEach(email -> deleteBatch.addDeleteItem(Key.builder().partitionValue(email).build()));
                     client.batchWriteItem(b -> b.addWriteBatch(deleteBatch.build()));
                     return response(204, null);
                 }
@@ -92,10 +109,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         }
     }
     //Using this function to get ids
-    private List<String> getIdsFromRequest(APIGatewayProxyRequestEvent request) throws Exception{
-        Map<String,String> pathParams= request.getPathParameters();
-        if(pathParams !=null && pathParams.containsKey("id"))
-            return Collections.singletonList(pathParams.get("id"));
+    private List<String> getEmailsFromRequest(APIGatewayProxyRequestEvent request) throws Exception{
         String body=request.getBody();
         if(body!=null && !body.trim().isEmpty())
             return mapper.readValue(body, new TypeReference<List<String>>() {});

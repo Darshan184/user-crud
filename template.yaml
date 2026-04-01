@@ -13,7 +13,7 @@ Globals:
     Runtime: java21
     Environment:
       Variables:
-        TABLE_NAME: UsersTable
+        TABLE_NAME: UsersTable1
 Resources:
   MyApi:
     Type: AWS::Serverless::Api
@@ -34,7 +34,7 @@ Resources:
       Handler: usercrud.UserHandler::handleRequest
       Policies:
         - DynamoDBCrudPolicy:
-            TableName: !Ref UsersTable
+            TableName: !Ref UsersTable1
       Events:
         CreateUser:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
@@ -52,20 +52,36 @@ Resources:
           Type: Api
           Properties:
             Path: /users
-            Method: delete
+            Method: any
             RestApiId: !Ref MyApi
-  #AuthFunction:
+  BulkUserfunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: .
+      Handler: usercrud.BulkUsersHandler::handleRequest
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable1
+      Events:
+        CreateUser:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /users/list
+            Method: post
+            RestApiId: !Ref MyApi
+
+      #AuthFunction:
    # Type: AWS::Serverless::Function
     #Properties:
      # CodeUri: UserFunction
       #Handler: usercrud.AuthHandler::handleRequest
-  UsersTable:
+  UsersTable1:
     Type: AWS::Serverless::SimpleTable
     Properties:
       PrimaryKey:
-        Name: userId
+        Name: email
         Type: String
-      TableName: UsersTable
+      TableName: UsersTable1
   #AuthFunctionInvocationPermission:
    # Type: AWS::Lambda::Permission
     #Properties:
