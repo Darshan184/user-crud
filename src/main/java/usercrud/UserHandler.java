@@ -67,7 +67,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                     ids.forEach(id -> readBatch.addGetItem(Key.builder().partitionValue(id).build()));
                     List<User> results = client.batchGetItem(b -> b.addReadBatch(readBatch.build()))
                             .resultsForTable(table).stream().collect(Collectors.toList());
-                    if (ids.size() == 1 && results.isEmpty())
+                    if (results.isEmpty())
                         return response(404, "User not found");
                     return response(200, results);
                 }
