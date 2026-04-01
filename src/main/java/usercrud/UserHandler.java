@@ -6,18 +6,30 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import model.User;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import software.amazon.awssdk.enhanced.dynamodb.model.ScanEnhancedRequest;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.*;
 import software.amazon.awssdk.enhanced.dynamodb.*;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.Collections;
+import java.util.List;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
+import software.amazon.awssdk.enhanced.dynamodb.Key;
+import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.model.WriteBatch;
+import software.amazon.awssdk.enhanced.dynamodb.model.ReadBatch;
+import software.amazon.awssdk.enhanced.dynamodb.model.BatchWriteItemEnhancedRequest;
+import software.amazon.awssdk.enhanced.dynamodb.model.BatchGetItemEnhancedRequest;
+import com.fasterxml.jackson.core.type.TypeReference;
+
 
 public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent>{
     private final DynamoDbTable<User> table;
     private final ObjectMapper mapper= new ObjectMapper();//Object mapper to map json objects
+    private static final  DynamoDbEnhancedClient client= DynamoDbEnhancedClient.create();
 
     public UserHandler(){
-        DynamoDbEnhancedClient client= DynamoDbEnhancedClient.builder().build();
         String tableName= System.getenv("TABLE_NAME");
         if(tableName==null)//Setting default tableName to UsersTable
             tableName="UsersTable";
@@ -27,36 +39,47 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent request, Context context){
         String method= request.getHttpMethod();//The HTTP method is extracted inorder to switch between crud functions
+        String body=request.getBody();
+        Map<String,String> pathParams= request.getPathParameters();
         try {
             switch (method){
-                case "POST":
-                    User user= mapper.readValue(request.getBody(), User.class);
-                    if(user.getName()==null || user.getEmail()==null)
-                        return response(400,"Missing required fields: name or email");
-                    if(emailExists(user.getEmail())){
-                        return response(400,"User already exists");
+                case "POST": {
+                    List<User> usersPosted = (body != null && body.trim().startsWith("["))
+                            ? mapper.readValue(body, new TypeReference<List<User>>() {
+                    })
+                            : Collections.singletonList(mapper.readValue(body, User.class));
+                    if (usersPosted.isEmpty())
+                        return response(400, "Empty request body");
+                    WriteBatch.Builder<User> writeBatch = WriteBatch.builder(User.class).mappedTableResource(table);
+                    for (User user : usersPosted) {
+                        if (user.getUserId() == null)
+                            user.setUserId(UUID.randomUUID().toString());
+                        writeBatch.addPutItem(user);
                     }
-                    user.setUserId(UUID.randomUUID().toString());//Generates a random uuid for userId and converts it to string
-                    table.putItem(user);
-                    return response(201,user);
-                case "PUT":
-                    String updateId=request.getPathParameters().get("id");
-                    User existing = table.getItem(Key.builder().partitionValue(updateId).build());
-                    if(existing==null)
-                        return response(404,"User not found");
-                    User updates= mapper.readValue(request.getBody(), User.class);
-                    if (updates.getName() != null) existing.setName(updates.getName());
-                    if (updates.getEmail() != null) existing.setEmail(updates.getEmail());
-                    table.putItem(existing);
-                    return response(200, existing);
-                case "GET":
-                    String id= request.getPathParameters().get("id");
-                    User found= table.getItem(Key.builder().partitionValue(id).build());
-                    return (found!=null) ? response(200,found) : response(404,"User not found");
-                case "DELETE":
-                    String delId=request.getPathParameters().get("id");
-                    table.deleteItem(Key.builder().partitionValue(delId).build());
-                    return response(204,null);
+                    client.batchWriteItem(b -> b.addWriteBatch(writeBatch.build()));
+                    return response(201, usersPosted);
+                }
+                case "GET": {
+                    List<String> ids = getIdsFromRequest(request);
+                    if (ids.isEmpty())
+                        return response(400, "Missing user ids");
+                    ReadBatch.Builder<User> readBatch = ReadBatch.builder(User.class).mappedTableResource(table);
+                    ids.forEach(id -> readBatch.addGetItem(Key.builder().partitionValue(id).build()));
+                    List<User> results = client.batchGetItem(b -> b.addReadBatch(readBatch.build()))
+                            .resultsForTable(table).stream().collect(Collectors.toList());
+                    if (ids.size() == 1 && results.isEmpty())
+                        return response(404, "User not found");
+                    return response(200, results);
+                }
+                case "DELETE": {
+                    List<String> ids = getIdsFromRequest(request);
+                    if (ids.isEmpty())
+                        return response(400, "Missing UserId");
+                    WriteBatch.Builder<User> deleteBatch = WriteBatch.builder(User.class).mappedTableResource(table);
+                    ids.forEach(id -> deleteBatch.addDeleteItem(Key.builder().partitionValue(id).build()));
+                    client.batchWriteItem(b -> b.addWriteBatch(deleteBatch.build()));
+                    return response(204, null);
+                }
                 default:
                     return response(405,"Unsupported Method");
             }
@@ -68,17 +91,17 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             return errorRes;
         }
     }
-    //Using this function to check if the email exists
-    private boolean emailExists(String email){
-        //Building a filter expression to filter the scan
-        Expression filter= Expression.builder()
-                .expression("#e= :emailVal")
-                .putExpressionName("#e","email")
-                .putExpressionValue(":emailVal",AttributeValue.builder().s(email).build())
-                .build();
-        return table.scan(ScanEnhancedRequest.builder().filterExpression(filter).build())
-                .items().stream().findAny().isPresent();//We use findAny to streamline the process faster
+    //Using this function to get ids
+    private List<String> getIdsFromRequest(APIGatewayProxyRequestEvent request) throws Exception{
+        Map<String,String> pathParams= request.getPathParameters();
+        if(pathParams !=null && pathParams.containsKey("id"))
+            return Collections.singletonList(pathParams.get("id"));
+        String body=request.getBody();
+        if(body!=null && !body.trim().isEmpty())
+            return mapper.readValue(body, new TypeReference<List<String>>() {});
+        return Collections.emptyList();
     }
+
     private APIGatewayProxyResponseEvent response(int status, Object body) {
         try {
             return new APIGatewayProxyResponseEvent()

@@ -46,7 +46,13 @@ Resources:
           Type: Api
           Properties:
             Path: /users/{id}
-            Method: any
+            Method: get
+            RestApiId: !Ref MyApi
+        DeleteOperations:
+          Type: Api
+          Properties:
+            Path: /users
+            Method: delete
             RestApiId: !Ref MyApi
   #AuthFunction:
    # Type: AWS::Serverless::Function
