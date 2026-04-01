@@ -30,3 +30,14 @@ Steps to use:
 ]
 
 ```
+Creating multiple users:
+<img width="1371" height="835" alt="image" src="https://github.com/user-attachments/assets/f937f4c4-9621-4935-b0a8-d17b8b4be510" />
+Updating a user:
+<img width="1355" height="829" alt="image" src="https://github.com/user-attachments/assets/1b172f6f-db7d-4bf7-b6f9-aea8016ed783" />
+Reading a user:
+<img width="1361" height="692" alt="image" src="https://github.com/user-attachments/assets/8775dedc-8918-4d4c-9822-d149e52109fe" />
+Deleting users:
+<img width="1364" height="822" alt="image" src="https://github.com/user-attachments/assets/a5d709d4-bcf2-4709-a2b6-8d7b04732c77" />
+
+
+
