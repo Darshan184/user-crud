@@ -23,7 +23,8 @@ import software.amazon.awssdk.enhanced.dynamodb.model.BatchWriteItemEnhancedRequ
 import software.amazon.awssdk.enhanced.dynamodb.model.TransactPutItemEnhancedRequest;
 import software.amazon.awssdk.enhanced.dynamodb.model.BatchGetItemEnhancedRequest;
 import com.fasterxml.jackson.core.type.TypeReference;
-
+import software.amazon.awssdk.enhanced.dynamodb.model.BatchGetResultPageIterable;
+import java.util.Set;
 
 public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent>{
     private final DynamoDbTable<User> table;
@@ -49,17 +50,49 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                             ? mapper.readValue(body, new TypeReference<List<User>>() {})
                             : Collections.singletonList(mapper.readValue(body, User.class));
                     if (usersPosted.isEmpty()) return response(400, "Empty request body");
-                    client.transactWriteItems(b -> {
-                        for (User user : usersPosted) {
-                            b.addPutItem(table, TransactPutItemEnhancedRequest.builder(User.class)
-                                    .item(user)
-                                    .conditionExpression(Expression.builder()
-                                            .expression("attribute_not_exists(email)")
-                                            .build())
-                                    .build());
-                        }
-                    });
-                    return response(201, usersPosted);
+                    //List of emails which are invalid
+                    List<String> invalidEmails = usersPosted.stream()
+                            .map(User::getEmail)
+                            .filter(email -> !isValidEmail(email))
+                            .collect(Collectors.toList());
+
+                    if (!invalidEmails.isEmpty()) {
+                        return response(400, "Invalid email format(s) detected: " + invalidEmails);
+                    }
+
+                    //Reading the batch of items in the body from the dynamodb to see if it already exists
+                    ReadBatch.Builder<User> readBatch = ReadBatch.builder(User.class).mappedTableResource(table);
+                    usersPosted.forEach(user -> readBatch.addGetItem(Key.builder().partitionValue(user.getEmail()).build()));
+
+                    // Fetch results and convert to List
+                    List<User> existingUsers = client.batchGetItem(b -> b.addReadBatch(readBatch.build()))
+                            .resultsForTable(table)
+                            .stream()
+                            .collect(Collectors.toList());
+
+                    // Set of existing emails
+                    Set<String> existingEmails = existingUsers.stream()
+                            .map(User::getEmail)
+                            .collect(Collectors.toSet());
+
+                    // filter the users to create
+                    List<User> usersToCreate = usersPosted.stream()
+                            .filter(u -> !existingEmails.contains(u.getEmail()))
+                            .collect(Collectors.toList());
+
+                    // 5. Batch Write
+                    if (!usersToCreate.isEmpty()) {
+                        client.batchWriteItem(b -> {
+                            WriteBatch.Builder<User> writeBuilder = WriteBatch.builder(User.class).mappedTableResource(table);
+                            usersToCreate.forEach(writeBuilder::addPutItem);
+                            b.addWriteBatch(writeBuilder.build());
+                        });
+                    }
+
+                    return response(201, Map.of(
+                            "createdCount", usersToCreate.size(),
+                            "existingUsers", existingUsers
+                    ));
                 }
                 case "PUT": {
                     List<User> usersPosted = (body != null && body.trim().startsWith("["))
@@ -68,6 +101,14 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                             : Collections.singletonList(mapper.readValue(body, User.class));
                     if (usersPosted.isEmpty())
                         return response(400, "Empty request body");
+                    List<String> invalidEmails = usersPosted.stream()
+                            .map(User::getEmail)
+                            .filter(email -> !isValidEmail(email))
+                            .collect(Collectors.toList());
+
+                    if (!invalidEmails.isEmpty()) {
+                        return response(400, "Invalid email format(s) detected: " + invalidEmails);
+                    }
                     WriteBatch.Builder<User> writeBatch = WriteBatch.builder(User.class).mappedTableResource(table);
                     for (User user : usersPosted) {
                         writeBatch.addPutItem(user);
@@ -108,7 +149,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             return errorRes;
         }
     }
-    //Using this function to get ids
+    //Using this function to get emails
     private List<String> getEmailsFromRequest(APIGatewayProxyRequestEvent request) throws Exception{
         String body=request.getBody();
         if(body!=null && !body.trim().isEmpty())
@@ -124,5 +165,10 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
         }catch(Exception e){
             return new APIGatewayProxyResponseEvent().withStatusCode(500).withBody("Internal Server Error");
         }
+    }
+    private boolean isValidEmail(String email) {
+        if (email == null) return false;
+        String emailRegex = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$";
+        return email.matches(emailRegex);
     }
 }
