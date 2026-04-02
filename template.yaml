@@ -2,10 +2,8 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
   user-crud-1
-
   Sample SAM Template for user-crud-1
 
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
     Timeout: 20
@@ -14,21 +12,22 @@ Globals:
     Environment:
       Variables:
         TABLE_NAME: UsersTable1
+
 Resources:
   MyApi:
     Type: AWS::Serverless::Api
     Properties:
       StageName: Prod
-      #Auth:
-        #DefaultAuthorizer: CustomAuth
-        #Authorizers:
-         # CustomAuth:
-          #  FunctionArn: !GetAtt AuthFunction.Arn
-           # Identity:
-            #  Header: Authorization
+      Auth:
+        DefaultAuthorizer: CustomAuth
+        Authorizers:
+          CustomAuth:
+            FunctionArn: !GetAtt AuthFunction.Arn
+            Identity:
+              Header: Authorization
 
   UserCrudFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Type: AWS::Serverless::Function
     Properties:
       CodeUri: .
       Handler: usercrud.UserHandler::handleRequest
@@ -37,7 +36,7 @@ Resources:
             TableName: !Ref UsersTable1
       Events:
         CreateUser:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Type: Api
           Properties:
             Path: /users
             Method: post
@@ -54,8 +53,9 @@ Resources:
             Path: /users
             Method: any
             RestApiId: !Ref MyApi
+
   BulkUserfunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Type: AWS::Serverless::Function
     Properties:
       CodeUri: .
       Handler: usercrud.BulkUsersHandler::handleRequest
@@ -64,17 +64,18 @@ Resources:
             TableName: !Ref UsersTable1
       Events:
         CreateUser:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Type: Api
           Properties:
             Path: /users/list
             Method: post
             RestApiId: !Ref MyApi
 
-      #AuthFunction:
-   # Type: AWS::Serverless::Function
-    #Properties:
-     # CodeUri: UserFunction
-      #Handler: usercrud.AuthHandler::handleRequest
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: usercrud.AuthHandler::handleRequest
+
   UsersTable1:
     Type: AWS::Serverless::SimpleTable
     Properties:
@@ -82,14 +83,14 @@ Resources:
         Name: email
         Type: String
       TableName: UsersTable1
-  #AuthFunctionInvocationPermission:
-   # Type: AWS::Lambda::Permission
-    #Properties:
-     # Action : lambda:InvokeFunction
-      #FunctionName: !GetAtt AuthFunction.Arn
-      #Principal: apigateway.amazonaws.com
-      #SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MyApi}/*/*/*"
 
+  AuthFunctionInvocationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt AuthFunction.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MyApi}/*/*/*"
 
 Outputs:
   ApiUrl:
