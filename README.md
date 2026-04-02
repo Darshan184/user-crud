@@ -56,6 +56,9 @@ Deleting users:
 <img width="1364" height="822" alt="image" src="https://github.com/user-attachments/assets/a5d709d4-bcf2-4709-a2b6-8d7b04732c77" />
 Getting multiple users based on the email:
 <img width="1370" height="814" alt="image" src="https://github.com/user-attachments/assets/cc2cb534-30c5-40ad-86fd-36009dc31a50" />
+Implemented email validation:
+<img width="1364" height="801" alt="image" src="https://github.com/user-attachments/assets/4d1471d1-09f2-48ab-b12e-83984f842522" />
+<img width="1360" height="834" alt="image" src="https://github.com/user-attachments/assets/44c99205-44f6-4365-99e1-19d3f61b4698" />
 
 
 
