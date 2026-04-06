@@ -96,7 +96,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                 }
                 case "PUT": {
                     Map<String, Object> authorizer = request.getRequestContext().getAuthorizer();
-                    String callerEmail = (authorizer != null) ? (String) authorizer.get("userEmail") : null;
+                    String callerEmail = (authorizer != null) ? (String) authorizer.get("email") : null;
 
                     if (callerEmail == null) {
                         return response(401, "Unauthorized: No valid token found");

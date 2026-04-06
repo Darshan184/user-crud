@@ -35,7 +35,7 @@ public class AuthHandler implements RequestHandler<APIGatewayCustomAuthorizerEve
                 if (email != null) {
                     principalId = email;
                     effect = "Allow";
-                    authContext.put("userEmail", email);
+                    authContext.put("email", email);
                 }
             }
         } catch (Exception e) {
