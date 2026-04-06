@@ -3,7 +3,11 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   user-crud-1
   Sample SAM Template for user-crud-1
-
+Parameters:
+  JwtSecret:
+    Type: String
+    Description: "Secret key for JWT signing"
+    NoEcho: true
 Globals:
   Function:
     Timeout: 20
@@ -12,14 +16,13 @@ Globals:
     Environment:
       Variables:
         TABLE_NAME: UsersTable1
-
+        jwt_secret: !Ref JwtSecret
 Resources:
   MyApi:
     Type: AWS::Serverless::Api
     Properties:
       StageName: Prod
       Auth:
-        DefaultAuthorizer: CustomAuth
         Authorizers:
           CustomAuth:
             FunctionArn: !GetAtt AuthFunction.Arn
@@ -41,12 +44,14 @@ Resources:
             Path: /users
             Method: post
             RestApiId: !Ref MyApi
-        UserOperations:
+        UpdateUser:
           Type: Api
           Properties:
-            Path: /users/{id}
-            Method: get
+            Path: /users
+            Method: put
             RestApiId: !Ref MyApi
+            Auth:
+              Authorizer: CustomAuth
         DeleteOperations:
           Type: Api
           Properties:

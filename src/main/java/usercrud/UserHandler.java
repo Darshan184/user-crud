@@ -95,27 +95,37 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                     ));
                 }
                 case "PUT": {
-                    List<User> usersPosted = (body != null && body.trim().startsWith("["))
-                            ? mapper.readValue(body, new TypeReference<List<User>>() {
-                    })
-                            : Collections.singletonList(mapper.readValue(body, User.class));
-                    if (usersPosted.isEmpty())
-                        return response(400, "Empty request body");
-                    List<String> invalidEmails = usersPosted.stream()
-                            .map(User::getEmail)
-                            .filter(email -> !isValidEmail(email))
-                            .collect(Collectors.toList());
+                    Map<String, Object> authorizer = request.getRequestContext().getAuthorizer();
+                    String callerEmail = (authorizer != null) ? (String) authorizer.get("userEmail") : null;
 
-                    if (!invalidEmails.isEmpty()) {
-                        return response(400, "Invalid email format(s) detected: " + invalidEmails);
+                    if (callerEmail == null) {
+                        return response(401, "Unauthorized: No valid token found");
                     }
-                    WriteBatch.Builder<User> writeBatch = WriteBatch.builder(User.class).mappedTableResource(table);
-                    for (User user : usersPosted) {
-                        writeBatch.addPutItem(user);
+
+                    List<User> usersToUpdate = (body != null && body.trim().startsWith("["))
+                            ? mapper.readValue(body, new TypeReference<List<User>>() {})
+                            : Collections.singletonList(mapper.readValue(body, User.class));
+                    if (usersToUpdate.isEmpty()) return response(400, "Empty request body");
+
+                    String firstEmailInBody = usersToUpdate.get(0).getEmail();
+
+                    if (!firstEmailInBody.equalsIgnoreCase(callerEmail)) {
+                        return response(403, "Forbidden: You can only initiate updates for your own account.");
                     }
-                    client.batchWriteItem(b -> b.addWriteBatch(writeBatch.build()));
-                    return response(201, usersPosted);
+
+                    User existingUser = table.getItem(Key.builder().partitionValue(firstEmailInBody).build());
+
+                    if (existingUser == null) {
+                        return response(404, "Error: The primary user " + firstEmailInBody + " was not found in the database.");
+                    }
+
+                    WriteBatch.Builder<User> putBatch = WriteBatch.builder(User.class).mappedTableResource(table);
+                    usersToUpdate.forEach(putBatch::addPutItem);
+                    client.batchWriteItem(b -> b.addWriteBatch(putBatch.build()));
+
+                    return response(200, Map.of("status", "Update successful", "verifiedUser", firstEmailInBody));
                 }
+
                /*
                 case "GET": {
                     List<String> ids = getIdsFromRequest(request);

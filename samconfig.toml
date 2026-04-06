@@ -20,7 +20,7 @@ resolve_s3 = true
 s3_prefix = "user-crud-1"
 image_repositories = []
 disable_rollback = true
-
+parameter_overrides = "JwtSecret=\"7n!R9#vW2z$XpL5*kQ8&mN1@bV4+sJ3G\""
 [default.package.parameters]
 resolve_s3 = true
 
