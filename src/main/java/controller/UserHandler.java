@@ -1,4 +1,4 @@
-package usercrud;
+package controller;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
@@ -25,7 +25,7 @@ import software.amazon.awssdk.enhanced.dynamodb.model.BatchGetItemEnhancedReques
 import com.fasterxml.jackson.core.type.TypeReference;
 import software.amazon.awssdk.enhanced.dynamodb.model.BatchGetResultPageIterable;
 import java.util.Set;
-
+import utils.ResponseUtils;
 public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent>{
     private final DynamoDbTable<User> table;
     private final ObjectMapper mapper= new ObjectMapper();//Object mapper to map json objects
@@ -49,7 +49,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                     List<User> usersPosted = (body != null && body.trim().startsWith("["))
                             ? mapper.readValue(body, new TypeReference<List<User>>() {})
                             : Collections.singletonList(mapper.readValue(body, User.class));
-                    if (usersPosted.isEmpty()) return response(400, "Empty request body");
+                    if (usersPosted.isEmpty()) return ResponseUtils.format(400, "Empty request body");
                     //List of emails which are invalid
                     List<String> invalidEmails = usersPosted.stream()
                             .map(User::getEmail)
@@ -57,7 +57,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                             .collect(Collectors.toList());
 
                     if (!invalidEmails.isEmpty()) {
-                        return response(400, "Invalid email format(s) detected: " + invalidEmails);
+                        return ResponseUtils.format(400, "Invalid email format(s) detected: " + invalidEmails);
                     }
 
                     //Reading the batch of items in the body from the dynamodb to see if it already exists
@@ -89,7 +89,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                         });
                     }
 
-                    return response(201, Map.of(
+                    return ResponseUtils.format(201, Map.of(
                             "createdCount", usersToCreate.size(),
                             "existingUsers", existingUsers
                     ));
@@ -99,31 +99,31 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                     String callerEmail = (authorizer != null) ? (String) authorizer.get("email") : null;
 
                     if (callerEmail == null) {
-                        return response(401, "Unauthorized: No valid token found");
+                        return ResponseUtils.format(401, "Unauthorized: No valid token found");
                     }
 
                     List<User> usersToUpdate = (body != null && body.trim().startsWith("["))
                             ? mapper.readValue(body, new TypeReference<List<User>>() {})
                             : Collections.singletonList(mapper.readValue(body, User.class));
-                    if (usersToUpdate.isEmpty()) return response(400, "Empty request body");
+                    if (usersToUpdate.isEmpty()) return ResponseUtils.format(400, "Empty request body");
 
                     String firstEmailInBody = usersToUpdate.get(0).getEmail();
 
                     if (!firstEmailInBody.equalsIgnoreCase(callerEmail)) {
-                        return response(403, "Forbidden: You can only initiate updates for your own account.");
+                        return ResponseUtils.format(403, "Forbidden: You can only initiate updates for your own account.");
                     }
 
                     User existingUser = table.getItem(Key.builder().partitionValue(firstEmailInBody).build());
 
                     if (existingUser == null) {
-                        return response(404, "Error: The primary user " + firstEmailInBody + " was not found in the database.");
+                        return ResponseUtils.format(404, "Error: The primary user " + firstEmailInBody + " was not found in the database.");
                     }
 
                     WriteBatch.Builder<User> putBatch = WriteBatch.builder(User.class).mappedTableResource(table);
                     usersToUpdate.forEach(putBatch::addPutItem);
                     client.batchWriteItem(b -> b.addWriteBatch(putBatch.build()));
 
-                    return response(200, Map.of("status", "Update successful", "verifiedUser", firstEmailInBody));
+                    return ResponseUtils.format(200, Map.of("status", "Update successful", "verifiedUser", firstEmailInBody));
                 }
 
                /*
@@ -142,21 +142,17 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
                 case "DELETE": {
                     List<String> emails = getEmailsFromRequest(request);
                     if (emails.isEmpty())
-                        return response(400, "Missing UserId");
+                        return ResponseUtils.format(400, "Missing UserId");
                     WriteBatch.Builder<User> deleteBatch = WriteBatch.builder(User.class).mappedTableResource(table);
                     emails.forEach(email -> deleteBatch.addDeleteItem(Key.builder().partitionValue(email).build()));
                     client.batchWriteItem(b -> b.addWriteBatch(deleteBatch.build()));
-                    return response(204, null);
+                    return ResponseUtils.format(204, null);
                 }
                 default:
-                    return response(405,"Unsupported Method");
+                    return ResponseUtils.format(405,"Unsupported Method");
             }
         }catch(Exception e){
-            //Here we handle the exception which can be thrown by mapper.writeValueAsString
-            APIGatewayProxyResponseEvent errorRes = new APIGatewayProxyResponseEvent();
-            errorRes.setStatusCode(500);
-            errorRes.setBody("Server Error: " + e.getMessage());
-            return errorRes;
+            return ResponseUtils.format(500,  "Server Error: " + e.getMessage());
         }
     }
     //Using this function to get emails
@@ -166,7 +162,7 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             return mapper.readValue(body, new TypeReference<List<String>>() {});
         return Collections.emptyList();
     }
-
+/*
     private APIGatewayProxyResponseEvent response(int status, Object body) {
         try {
             return new APIGatewayProxyResponseEvent()
@@ -176,6 +172,8 @@ public class UserHandler implements RequestHandler<APIGatewayProxyRequestEvent, 
             return new APIGatewayProxyResponseEvent().withStatusCode(500).withBody("Internal Server Error");
         }
     }
+
+ */
     private boolean isValidEmail(String email) {
         if (email == null) return false;
         String emailRegex = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$";

@@ -1,4 +1,4 @@
-package usercrud;
+package controller;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
@@ -21,7 +21,7 @@ import software.amazon.awssdk.enhanced.dynamodb.model.ReadBatch;
 import software.amazon.awssdk.enhanced.dynamodb.model.BatchWriteItemEnhancedRequest;
 import software.amazon.awssdk.enhanced.dynamodb.model.BatchGetItemEnhancedRequest;
 import com.fasterxml.jackson.core.type.TypeReference;
-
+import utils.ResponseUtils;
 
 public class BulkUsersHandler implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
     private final DynamoDbTable<User> table;
@@ -43,19 +43,16 @@ public class BulkUsersHandler implements RequestHandler<APIGatewayProxyRequestEv
         try {
             List<String>  emails = getEmailsFromRequest(request);
             if (emails.isEmpty())
-                return response(400, "Missing user ids");
+                return ResponseUtils.format(400, "Missing user ids");
             ReadBatch.Builder<User> readBatch = ReadBatch.builder(User.class).mappedTableResource(table);
             emails.forEach(email -> readBatch.addGetItem(Key.builder().partitionValue(email).build()));
             List<User> results = client.batchGetItem(b -> b.addReadBatch(readBatch.build()))
                     .resultsForTable(table).stream().collect(Collectors.toList());
             if (results.isEmpty())
-                return response(404, "User not found");
-            return response(200, results);
+                return ResponseUtils.format(404, "User not found");
+            return ResponseUtils.format(200, results);
         }catch(Exception e){
-            APIGatewayProxyResponseEvent errorRes = new APIGatewayProxyResponseEvent();
-            errorRes.setStatusCode(500);
-            errorRes.setBody("Server Error: " + e.getMessage());
-            return errorRes;
+            return ResponseUtils.format(500,  "Server Error: " + e.getMessage());
         }
     }
     private List<String> getEmailsFromRequest(APIGatewayProxyRequestEvent request) throws Exception{
@@ -64,6 +61,7 @@ public class BulkUsersHandler implements RequestHandler<APIGatewayProxyRequestEv
             return mapper.readValue(body, new TypeReference<List<String>>() {});
         return Collections.emptyList();
     }
+    /*
     private APIGatewayProxyResponseEvent response(int status, Object body) {
         try {
             return new APIGatewayProxyResponseEvent()
@@ -72,5 +70,5 @@ public class BulkUsersHandler implements RequestHandler<APIGatewayProxyRequestEv
         }catch(Exception e){
             return new APIGatewayProxyResponseEvent().withStatusCode(500).withBody("Internal Server Error");
         }
-    }
+    }*/
 }

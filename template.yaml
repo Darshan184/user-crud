@@ -33,7 +33,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: .
-      Handler: usercrud.UserHandler::handleRequest
+      Handler: controller.UserHandler::handleRequest
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable1
@@ -63,7 +63,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: .
-      Handler: usercrud.BulkUsersHandler::handleRequest
+      Handler: controller.BulkUsersHandler::handleRequest
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable1
@@ -79,7 +79,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: .
-      Handler: usercrud.AuthHandler::handleRequest
+      Handler: controller.AuthHandler::handleRequest
 
   UsersTable1:
     Type: AWS::Serverless::SimpleTable
