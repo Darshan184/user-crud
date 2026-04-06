@@ -5,13 +5,13 @@ Steps to use:
 ```json
 [{
     "name":"abcde",
-    "email" :"abcde@123.com"
+    "email" :"abcde123@gmail.com"
 },
 {
 
         
         "name": "darshan1",
-        "email": "darshan@123"
+        "email": "darshan123@gmail.com"
     
 }
 ]
@@ -21,8 +21,8 @@ Steps to use:
 Give the email id in the form of
 ```json
 [
-         "darshan@1234",
-         "england@134"
+         "abcde123@gmail.com",
+         "darshan123@gmail.com"
     
     ]
 ```
@@ -31,8 +31,8 @@ Give the email id in the form of
 ```json
 [
     
-         "darshan@1234",
-         "england@134"
+         "darshan123@gmail.com",
+         "abcde123@gmail.com"
     
     
         
@@ -42,8 +42,8 @@ Give the email id in the form of
 3. To update a record send a PUT request to the url with the function body
 ```json
 {
-    "name": "darshan1",
-        "email": "darshan@1234"
+    "name": "Darshan1",
+        "email": "darshanvs1206@gmail.com"
 }
 ```
 Creating multiple users:
@@ -60,7 +60,7 @@ Implemented email validation:
 <img width="1364" height="801" alt="image" src="https://github.com/user-attachments/assets/4d1471d1-09f2-48ab-b12e-83984f842522" />
 <img width="1360" height="834" alt="image" src="https://github.com/user-attachments/assets/44c99205-44f6-4365-99e1-19d3f61b4698" />
 With custom lambda authorizer:
-<img width="1361" height="801" alt="image" src="https://github.com/user-attachments/assets/0bb873e5-868f-47ec-9116-65a8632b1a20" />
-<img width="1366" height="827" alt="image" src="https://github.com/user-attachments/assets/7de1ee3a-a206-4990-ae97-3ed1572732a3" />
+<img width="1307" height="761" alt="image" src="https://github.com/user-attachments/assets/b7f29acc-7038-4407-9209-4c3767305424" />
+
 
 
